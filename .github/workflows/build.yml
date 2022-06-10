@@ -63,7 +63,7 @@ jobs:
         cd /workspace
         . edk2/edksetup.sh BaseTools
         make -C edk2/BaseTools
-        build -a AARCH64 -t GCC5 -p edk2-platforms/Platform/Rockchip/RK3588/RK3588.dsc -D ROCKCHIP_ACPIEN
+        build -a AARCH64 -t GCC5 -p edk2-platforms/Platform/Rockchip/RK3588/RK3588.dsc
         
         mkdir /workspace/uefi_output
         cp $WORKSPACE/Build/RK$CHIP/DEBUG_GCC5/FV/BL33_AP_UEFI.fd /workspace/uefi_output
