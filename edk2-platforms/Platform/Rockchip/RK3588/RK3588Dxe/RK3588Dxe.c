@@ -5,7 +5,9 @@
 *  SPDX-License-Identifier: BSD-2-Clause-Patent
 *
 **/
-
+#include <Uefi.h>
+#include <Library/ArmLib.h>
+#include <Protocol/Cpu.h>
 #include <Library/CacheMaintenanceLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
@@ -24,6 +26,7 @@
 #include <Protocol/PlatformBootManager.h>
 #include <Protocol/PlatformVirtualKeyboard.h>
 #include <Protocol/AndroidBootImg.h>
+#include <Library/DxeServicesTableLib.h>
 
 #include <Soc.h>
 #include <RK3588RegsPeri.h>
@@ -75,6 +78,7 @@ MtcmosInit (
   //} while ((Data & PW_EN0_G3D) == 0);
 }
 
+#ifdef ROCKCHIP_RK809_DUAL
 static struct regulator_init_data rk806_master[] = {
 	RK8XX_VOLTAGE_INIT(MASTER_BUCK1, 750000),
 	RK8XX_VOLTAGE_INIT(MASTER_BUCK2, 750000),
@@ -124,6 +128,32 @@ static struct regulator_init_data rk806_slaver[] = {
 	RK8XX_VOLTAGE_INIT(SLAVER_PLDO5, 2800000),
 	RK8XX_VOLTAGE_INIT(SLAVER_PLDO6, 1800000),
 };
+#else
+static struct regulator_init_data rk806_single[] = {
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK1, 750000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK2, 750000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK3, 750000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK4, 750000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK5, 850000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK6, 500000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK7, 2000000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK8, 3300000),
+	RK8XX_VOLTAGE_INIT(MASTER_BUCK10, 1800000),
+
+	RK8XX_VOLTAGE_INIT(MASTER_NLDO1, 750000),
+	RK8XX_VOLTAGE_INIT(MASTER_NLDO2, 850000),
+	RK8XX_VOLTAGE_INIT(MASTER_NLDO3, 750000),
+	RK8XX_VOLTAGE_INIT(MASTER_NLDO4, 850000),
+	RK8XX_VOLTAGE_INIT(MASTER_NLDO5, 750000),
+
+	RK8XX_VOLTAGE_INIT(MASTER_PLDO1, 1800000),
+	RK8XX_VOLTAGE_INIT(MASTER_PLDO2, 1800000),
+	RK8XX_VOLTAGE_INIT(MASTER_PLDO3, 1200000),
+	RK8XX_VOLTAGE_INIT(MASTER_PLDO4, 3300000),
+	RK8XX_VOLTAGE_INIT(MASTER_PLDO5, 3300000),
+	RK8XX_VOLTAGE_INIT(MASTER_PLDO6, 1800000),
+};
+#endif
 
 EFI_STATUS
 RK3588InitPeripherals (
@@ -150,10 +180,16 @@ RK3588InitPeripherals (
   //MmioWrite32 (IOMG_080_REG, 0);        /* configure GPIO24 as GPIO */
   RK806Init();
 
+
+#ifdef ROCKCHIP_RK809_DUAL
   for (i = 0; i < ARRAY_SIZE(rk806_master); i++)
     RK806RegulatorInit(rk806_master[i]);
   for (i = 0; i < ARRAY_SIZE(rk806_slaver); i++)
     RK806RegulatorInit(rk806_slaver[i]);
+#else
+  for (i = 0; i < ARRAY_SIZE(rk806_single); i++)
+    RK806RegulatorInit(rk806_single[i]);
+#endif
 
   return EFI_SUCCESS;
 }
@@ -388,14 +424,71 @@ PLATFORM_VIRTUAL_KBD_PROTOCOL mVirtualKeyboard = {
   VirtualKeyboardClear
 };
 
+STATIC  EFI_STATUS EFIAPI AppendArgs (
+  IN CHAR16            *Args,
+  IN UINTN              Size
+  )
+{
+	CHAR16 *newArgs =   (CHAR16 *)PcdGetPtr (PcdKernelBootArg);
+    UINTN srcSize, i, bootArgSize;
+
+    for (srcSize = 0; srcSize < Size / 2; srcSize++) {
+        if (!Args[srcSize])
+			break;
+    }
+
+    for (bootArgSize = 0; bootArgSize < Size / 2; bootArgSize++) {
+        if (!newArgs[bootArgSize])
+			break;
+    }
+
+	if (bootArgSize * 2 + srcSize * 2 < Size)
+	    for (i = 0; i < bootArgSize; i++)
+            Args[i] = newArgs[i];
+
+    return 0;
+}
+
 ANDROID_BOOTIMG_PROTOCOL mAndroidBootImageManager = {
-	  NULL,
+	  AppendArgs,
 	  NULL
 };
 
 STATIC CONST EFI_GUID mAcpiTableFile = {
   0x7E374E25, 0x8E01, 0x4FEE, { 0x87, 0xf2, 0x39, 0x0C, 0x23, 0xC6, 0x06, 0xCD }
 };
+
+STATIC VOID SetFlashAttributeToUncache(VOID)
+{
+  EFI_STATUS Status;
+  EFI_GCD_MEMORY_SPACE_DESCRIPTOR desp = {0};
+
+  Status = gDS->AddMemorySpace (
+                     EfiGcdMemoryTypeMemoryMappedIo,
+                     PcdGet64(FspiBaseAddr),
+                     SIZE_64KB,
+                     EFI_MEMORY_UC | EFI_MEMORY_RUNTIME
+                     );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "RTC: Failed to add memory space Status = %r\n", Status));
+    return;
+  }
+
+  Status = gDS->GetMemorySpaceDescriptor(PcdGet64(FspiBaseAddr),&desp);
+  DEBUG ((DEBUG_ERROR, "%a: GetMemorySpaceDescriptor status = %x\n", __FUNCTION__, Status));
+  if(EFI_ERROR(Status)){
+    return;
+  }
+
+  Status = gDS->SetMemorySpaceAttributes (
+                     PcdGet64(FspiBaseAddr),
+                     SIZE_64KB,
+                     EFI_MEMORY_UC | EFI_MEMORY_RUNTIME
+                     );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to set memory attributes Status = %x\n",__FUNCTION__, Status));
+  }
+}
 
 EFI_STATUS
 EFIAPI
@@ -410,6 +503,8 @@ RK3588EntryPoint (
   if (EFI_ERROR (Status)) {
     return Status;
   }
+
+  SetFlashAttributeToUncache();
 
   if(PcdGetBool (AcpiEnable)) {
     LocateAndInstallAcpiFromFvConditional (&mAcpiTableFile, NULL);
