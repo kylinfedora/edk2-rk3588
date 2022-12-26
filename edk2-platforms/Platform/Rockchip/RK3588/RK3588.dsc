@@ -23,6 +23,11 @@
 
   DEFINE CONFIG_NO_DEBUGLIB      = TRUE
 
+  DEFINE CP_UNCONNECTED    = 0x0
+  DEFINE CP_PCIE           = 0x01
+  DEFINE CP_SATA           = 0x10
+  DEFINE CP_USB3           = 0x20
+
   #
   # Network definition
   #
@@ -39,7 +44,7 @@
   ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
   AcpiLib|EmbeddedPkg/Library/AcpiLib/AcpiLib.inf
   ArmPlatformLib|Platform/Rockchip/RK3588/Library/RK3588Lib/RK3588Lib.inf
-  RockchipPlatfromLib|Platform/Rockchip/RK3588/Library/RockchipPlatfromLib/RockchipPlatfromLib.inf
+  RockchipPlatformLib|Platform/Rockchip/RK3588/Library/RockchipPlatformLib/RockchipPlatformLib.inf
   CruLib|Silicon/Rockchip/Library/CruLib/CruLib.inf
 
   DmaLib|EmbeddedPkg/Library/NonCoherentDmaLib/NonCoherentDmaLib.inf
@@ -82,6 +87,9 @@
   # to delete
   AnalogixDpLib|Silicon/Rockchip/Library/DisplayLib/AnalogixDpLib.inf
 
+  UefiScsiLib|MdePkg/Library/UefiScsiLib/UefiScsiLib.inf
+  LockBoxLib|MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
+
 [LibraryClasses.common.SEC]
   PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
   ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
@@ -92,7 +100,7 @@
   PrePiHobListPointerLib|ArmPlatformPkg/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
 
 [LibraryClasses.common.DXE_RUNTIME_DRIVER]
-  RockchipPlatfromLib|Platform/Rockchip/RK3588/Library/RockchipPlatfromLib/RockchipPlatfromLib.inf
+  RockchipPlatformLib|Platform/Rockchip/RK3588/Library/RockchipPlatformLib/RockchipPlatformLib.inf
 
 [BuildOptions]
   GCC:*_*_*_PLATFORM_FLAGS = -I$(WORKSPACE)/Silicon/Rockchip/RK3588/Include -I$(WORKSPACE)/Platform/Rockchip/RK3588/Include -I$(WORKSPACE)/Silicon/Rockchip/Include
@@ -152,6 +160,10 @@
 
   ## NOR FLASH
   gRockchipTokenSpaceGuid.FspiBaseAddr|0xFE2B0000
+
+  ## CRU
+  gRockchipTokenSpaceGuid.CruBaseAddr|0xFD7C0000
+
   #gRockchipTokenSpaceGuid.PcdSpiVariableOffset|0x3C0000
   #
   # ARM General Interrupt Controller
@@ -252,6 +264,11 @@
   # Display
   #
   gRockchipTokenSpaceGuid.PcdLcdPixelFormat|0x00000001
+
+  #
+  # ComboPhy
+  #
+  gRockchipTokenSpaceGuid.PcdComboPhyMode|{ $(CP_SATA), $(CP_USB3), $(CP_PCIE) }
 
 [PcdsDynamicDefault.common]
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64|0x007C0000
@@ -392,6 +409,13 @@
   Silicon/Rockchip/Drivers/NorFlashDxe/NorFlashDxe.inf
   Silicon/Rockchip/Drivers/NorFlashDxe/RkFvbDxe.inf
   Silicon/Rockchip/Applications/SpiTool/SpiFlashCmd.inf
+
+  #
+  # AHCI Support
+  #
+  Silicon/Rockchip/Drivers/SataControllerDxe/SataControllerDxe.inf
+  Silicon/Rockchip/Drivers/AtaAtapiPassThru/AtaAtapiPassThru.inf
+  MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
 
   #
   # SPI TEST

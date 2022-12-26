@@ -48,11 +48,23 @@ SdhciGetClockRate (
 
 void
 EFIAPI
+GmacIomux(
+  UINT32 id
+  );
+
+void
+EFIAPI
 Rk806SpiIomux(void);
 
 void
 EFIAPI
 NorFspiIomux(void);
+
+void
+EFIAPI
+NorFspiEnableClock (
+  UINT32 *CruBase
+);
 
 UINT32
 EFIAPI
