@@ -13,8 +13,8 @@ on:
     types: started
 
 env:
-  REPO_URL: https://github.com/chainsx/edk2-rk3588
-  REPO_BRANCH: master
+  REPO_URL: https://github.com/kylinfedora/edk2-rk3588
+  REPO_BRANCH: main
   ACTIONS_ALLOW_UNSECURE_COMMANDS: true
   SSH_ACTIONS: false
   UPLOAD_BIN_DIR: false
